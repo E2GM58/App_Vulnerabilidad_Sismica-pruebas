@@ -3,6 +3,7 @@ import 'database_service.dart';
 import '../../data/models/database_response.dart';
 import '../../data/models/auth_response.dart';
 
+
 class AuthService {
 
   // 🔐 LOGIN con retry automático
@@ -51,11 +52,81 @@ class AuthService {
             );
           }
         } else {
-          // Si es error de servidor (no de conexión), no reintentar
+          // ✅ Manejar estructura de error de tu servidor: { error: { code, message } }
           if (response.statusCode != null && response.statusCode! >= 400 && response.statusCode! < 500) {
-            print('❌ Error del servidor (${response.statusCode}): ${response.error}');
+            print('❌ Error del cliente (${response.statusCode})');
+            print('📄 Datos de respuesta: ${response.data}'); // ✅ Debug adicional
+
+            // Intentar extraer el mensaje de error de tu estructura específica
+            String errorMessage = 'Error desconocido';
+
+            // Tu servidor usa la estructura { error: { code, message } }
+            try {
+              if (response.data != null) {
+                final data = response.data;
+
+                // Caso 1: { error: { message: "..." } }
+                if (data is Map<String, dynamic> && data['error'] != null) {
+                  final errorObj = data['error'];
+                  if (errorObj is Map<String, dynamic> && errorObj['message'] != null) {
+                    errorMessage = errorObj['message'];
+                  }
+                }
+                // Caso 2: { message: "..." } directamente
+                else if (data is Map<String, dynamic> && data['message'] != null) {
+                  errorMessage = data['message'];
+                }
+                // Caso 3: String directo
+                else if (data is String) {
+                  errorMessage = data as String;
+                }
+              }
+
+              // Fallback al error del DatabaseResponse
+              if (errorMessage == 'Error desconocido' && response.error != null) {
+                errorMessage = response.error!;
+              }
+            } catch (e) {
+              print('⚠️ Error parseando mensaje: $e');
+              errorMessage = response.error ?? 'Error de formato en la respuesta';
+            }
+
+            print('📝 Mensaje de error extraído: $errorMessage');
+
+            // ✅ Mensajes específicos según el código HTTP
+            switch (response.statusCode!) {
+              case 400:
+              // Tu servidor devuelve 400 para credenciales incorrectas
+                if (errorMessage.isEmpty || errorMessage.contains('HTTP 400')) {
+                  errorMessage = 'Email o contraseña incorrectos';
+                }
+                break;
+              case 401:
+                if (errorMessage.contains('token')) {
+                  errorMessage = 'Sesión expirada. Vuelve a iniciar sesión.';
+                } else if (errorMessage.isEmpty || errorMessage.contains('HTTP 401')) {
+                  errorMessage = 'Email o contraseña incorrectos';
+                }
+                break;
+              case 403:
+                if (errorMessage.isEmpty || errorMessage.contains('HTTP 403')) {
+                  errorMessage = 'Acceso denegado. Cuenta puede estar deshabilitada.';
+                }
+                break;
+              case 404:
+                if (errorMessage.isEmpty || errorMessage.contains('HTTP 404')) {
+                  errorMessage = 'Servicio de autenticación no encontrado';
+                }
+                break;
+              case 422:
+                if (errorMessage.isEmpty || errorMessage.contains('HTTP 422')) {
+                  errorMessage = 'Email o contraseña con formato inválido';
+                }
+                break;
+            }
+
             return AuthResponse.failure(
-              error: response.error ?? 'Credenciales inválidas',
+              error: errorMessage,
               statusCode: response.statusCode,
             );
           }
