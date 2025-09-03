@@ -1,6 +1,6 @@
 class DatabaseConfig {
   // 🤖 Para Android establaces la ip de tu compu ↓ antes del puerto
-  static const String baseUrl = 'http://192.168.100.19:3000';
+  static const String baseUrl = 'http://192.168.31.21:3000';
 
   static const int connectionTimeout = 30000;
   static const int receiveTimeout = 30000;
@@ -13,7 +13,7 @@ class DatabaseConfig {
     if (useEmulator) {
       return 'http://10.0.2.2:3000';
     } else {
-       return 'http://192.168.100.19:3000';
+       return 'http://192.168.31.21:3000';
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
-
+import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
@@ -86,6 +87,8 @@ class DatabaseService {
     }
   }
 
+
+
   // POST Request actualizado
   static Future<DatabaseResponse<T>> post<T>(
       String endpoint,
@@ -136,6 +139,62 @@ class DatabaseService {
       return _handleResponse<T>(response);
     } catch (e) {
       return DatabaseResponse.error('Error al subir archivo: $e');
+    }
+  }
+  static Future<DatabaseResponse<T>> postMultipart<T>(
+      String endpoint,
+      Map<String, String> fields, // Solo strings para multipart
+          {File? file, String? fileFieldName}
+      ) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Agregar headers si tienes token
+      if (_authToken != null) {
+        request.headers['Authorization'] = 'Bearer $_authToken';
+      }
+
+      // Agregar campos
+      request.fields.addAll(fields);
+
+      // Agregar archivo si existe
+      if (file != null && fileFieldName != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          fileFieldName,
+          file.path,
+        ));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('🔍 DEBUG Multipart Response:');
+      print('   StatusCode: ${response.statusCode}');
+      print('   Body: ${response.body}');
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        try {
+          final data = json.decode(response.body) as T;
+          return DatabaseResponse.success(
+            data,
+            statusCode: response.statusCode,
+          );
+        } catch (e) {
+          return DatabaseResponse.failure(
+            error: 'Error al decodificar la respuesta: $e',
+            statusCode: response.statusCode,
+          );
+        }
+      } else {
+        return DatabaseResponse.failure(
+          error: 'HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
+          data: response.body.isNotEmpty ? json.decode(response.body) as T : null,
+        );
+      }
+    } catch (e) {
+      return DatabaseResponse.failure(error: 'Error de conexión: $e');
     }
   }
 

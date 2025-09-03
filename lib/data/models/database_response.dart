@@ -42,11 +42,15 @@ class DatabaseResponse<T> {
     throw Exception('Max retries reached');
   }
 
-  factory DatabaseResponse.success(T data) {
-    return DatabaseResponse._(success: true, data: data);
-  }
-
   factory DatabaseResponse.error(String error, [int? statusCode]) {
     return DatabaseResponse._(success: false, error: error, statusCode: statusCode);
   }
-}
+
+  factory DatabaseResponse.success(T data, {int? statusCode}) {
+    return DatabaseResponse._(success: true, data: data, statusCode: statusCode);
+  }
+
+
+  DatabaseResponse.failure({required this.error, this.statusCode, this.data})
+      : success = false;
+  }
